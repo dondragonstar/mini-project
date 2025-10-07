@@ -1,0 +1,100 @@
+Project Dependencies and Install Commands
+
+Backend (Python)
+Package manager: pip (use within your virtual environment)
+
+Required packages:
+- flask
+- flask-cors
+- python-dotenv
+- SpeechRecognition
+- pocketsphinx
+- google-generativeai
+- deep_translator
+- werkzeug
+ - pydub
+
+Install commands:
+- Windows PowerShell (from project root, with venv active):
+  pip install flask flask-cors python-dotenv SpeechRecognition pocketsphinx google-generativeai deep_translator werkzeug pydub
+
+Notes:
+- SpeechRecognition with recognize_sphinx requires pocketsphinx installed.
+- Ensure GEMINI_API_KEY is set in your environment for google-generativeai.
+ - pydub requires ffmpeg in PATH (see below).
+
+Frontend (React)
+Package manager: npm (run inside frontend directory)
+
+Already managed via package.json:
+- react
+- react-dom
+- react-scripts
+
+Additional packages to install:
+- gsap
+- motion
+- tailwindcss (dev)
+- postcss (dev)
+- autoprefixer (dev)
+
+Install commands (run in frontend/):
+- npm i gsap motion
+- npm i -D tailwindcss postcss autoprefixer
+
+Post-install steps already configured:
+- tailwind.config.js with content paths
+- postcss.config.js with tailwindcss and autoprefixer
+- src/index.css includes @tailwind directives
+
+Optional fonts:
+- Add Roboto Flex variable font in frontend/public/index.html:
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap" rel="stylesheet">
+
+Run scripts
+Backend:
+- python app.py
+
+Frontend (inside frontend/):
+- npm start
+
+Cloud/Server Environments Without venv (Global Installs via Bash)
+
+If you cannot create a Python virtual environment on a cloud machine, install Python packages globally for the user and ensure your shell PATHs are set.
+
+Python (pip user-level installs):
+- bash:
+  pip3 install --user flask flask-cors python-dotenv SpeechRecognition pocketsphinx google-generativeai deep_translator werkzeug pydub
+- Ensure the user site-packages bin path is on PATH (typically added by default on many cloud shells):
+  export PATH="$HOME/.local/bin:$PATH"
+- Run backend:
+  python3 app.py
+
+Python (system-wide, if you have sudo):
+- sudo pip3 install flask flask-cors python-dotenv SpeechRecognition pocketsphinx google-generativeai deep_translator werkzeug pydub
+
+Node/Frontend (npm global tooling when local install is not possible):
+- bash (from frontend/):
+  npm install --global npm
+  npm install --global tailwindcss
+  # For project bundling, local deps are preferred. If blocked, you can still run transient CLI via npx:
+  npx tailwindcss -v
+
+Runtime deps for the app (gsap, motion) should remain project-local. If necessary on a locked-down system, you can try:
+- npm install --global gsap motion
+Note: CRA resolves from local node_modules; global installs may not be picked up by the bundler. Prefer local installs when possible.
+
+React Bits CLIs (optional):
+- Use npx so no global install is required:
+  npx shadcn@latest add https://reactbits.dev/r/SplitText-JS-TW
+  npx jsrepo add https://reactbits.dev/tailwind/TextAnimations/SplitText
+
+ffmpeg installation (required for pydub audio conversion)
+- Windows (Chocolatey):
+  choco install ffmpeg -y
+- Windows (winget):
+  winget install Gyan.FFmpeg
+- macOS (Homebrew):
+  brew install ffmpeg
+- Linux (Debian/Ubuntu):
+  sudo apt-get update && sudo apt-get install -y ffmpeg

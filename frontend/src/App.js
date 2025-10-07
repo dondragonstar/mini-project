@@ -1,10 +1,8 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { OrbBackground, GradientTitle, CTAButton, GlassCard } from './components/AnimatedBits';
 import ScrambledText from './components/ScrambledText';
-import ScrollVelocity from './components/ScrollVelocity';
 import VariableProximity from './components/VariableProximity';
 import AnimatedContent from './components/AnimatedContent';
-import TargetCursor from './components/TargetCursor';
 
 const AuthContext = createContext();
 
@@ -75,7 +73,7 @@ const LoginPage = ({ onNavigate }) => {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4 bg-brand-gradient-1">
+    <div className="min-h-screen relative flex items-center justify-center p-4 bg-gradient-to-br from-brand-blue to-brand-sand">
       <BackgroundOrbs />
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       
@@ -160,7 +158,7 @@ const RegisterPage = ({ onNavigate }) => {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4 bg-brand-gradient-2">
+    <div className="min-h-screen relative flex items-center justify-center p-4 bg-gradient-to-br from-brand-blue to-brand-sand">
       <BackgroundOrbs />
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       
@@ -248,7 +246,7 @@ const Navigation = ({ currentPage, onNavigate }) => {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
             <button onClick={() => onNavigate('dashboard')} className="text-2xl font-black bg-gradient-to-r from-brand-yellow to-brand-orange bg-clip-text text-transparent">
-              LinguaLearn
+              Smart Vocab
             </button>
             <div className="hidden md:flex space-x-2">
               {navItems.map((item) => (
@@ -288,12 +286,22 @@ const Navigation = ({ currentPage, onNavigate }) => {
 
 const DashboardPage = ({ onNavigate }) => {
   const { user } = useAuth();
-  const stats = {
-    wordsLearned: 47,
-    translations: 32,
-    pronunciations: 28,
-    reviewsCompleted: 15
-  };
+  const [stats, setStats] = useState({ wordsLearned: 0, translations: 0, pronunciations: 0, reviewsCompleted: 0 });
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/stats?user_id=${user.id}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load stats');
+        setStats(data);
+      } catch (e) {
+        setToast({ message: e.message, type: 'error' });
+      }
+    };
+    load();
+  }, [user]);
 
   const statCards = [
     { title: 'Words Learned', value: stats.wordsLearned, icon: '📚', color: 'from-blue-500 to-cyan-500' },
@@ -310,7 +318,6 @@ const DashboardPage = ({ onNavigate }) => {
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <TargetCursor hideDefaultCursor={true} />
       <Navigation currentPage="dashboard" onNavigate={onNavigate} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -323,6 +330,7 @@ const DashboardPage = ({ onNavigate }) => {
           />
           <p className="text-brand-blue/70 text-lg mt-2">Continue your language learning journey</p>
         </div>
+        {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
         <AnimatedContent direction="horizontal" distance={80} duration={0.9}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -338,11 +346,7 @@ const DashboardPage = ({ onNavigate }) => {
           </div>
         </AnimatedContent>
 
-        <ScrollVelocity
-          texts={["Learn", "Translate", "Pronounce", "Review"]}
-          velocity={120}
-          className="px-4 text-transparent bg-clip-text bg-gradient-to-r from-brand-orange via-brand-pink to-brand-blue"
-        />
+        {/* Removed ScrollVelocity banner */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {quickActions.map((action) => (
             <button
@@ -362,6 +366,7 @@ const DashboardPage = ({ onNavigate }) => {
 };
 
 const ProcessWordPage = ({ onNavigate }) => {
+  const { user } = useAuth();
   const [word, setWord] = useState('');
   const [language, setLanguage] = useState('en');
   const [result, setResult] = useState(null);
@@ -380,7 +385,7 @@ const ProcessWordPage = ({ onNavigate }) => {
       const response = await fetch('http://localhost:5000/process_word', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word: word.trim(), language })
+        body: JSON.stringify({ word: word.trim(), language, user_id: user.id })
       });
       
       const data = await response.json();
@@ -473,6 +478,7 @@ const ProcessWordPage = ({ onNavigate }) => {
 };
 
 const TranslatePage = ({ onNavigate }) => {
+  const { user } = useAuth();
   const [word, setWord] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('es');
   const [translation, setTranslation] = useState('');
@@ -491,7 +497,7 @@ const TranslatePage = ({ onNavigate }) => {
       const response = await fetch('http://localhost:5000/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word: word.trim(), target_language: targetLanguage })
+        body: JSON.stringify({ word: word.trim(), target_language: targetLanguage, user_id: user.id })
       });
       
       const data = await response.json();
@@ -569,6 +575,7 @@ const TranslatePage = ({ onNavigate }) => {
 };
 
 const PronunciationPage = ({ onNavigate }) => {
+  const { user } = useAuth();
   const [word, setWord] = useState('');
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
@@ -587,6 +594,7 @@ const PronunciationPage = ({ onNavigate }) => {
       const formData = new FormData();
       formData.append('word', word.trim());
       formData.append('audio', file);
+      formData.append('user_id', user.id);
       
       const response = await fetch('http://localhost:5000/check_pronunciation', {
         method: 'POST',
@@ -667,24 +675,58 @@ const PronunciationPage = ({ onNavigate }) => {
 };
 
 const ReviewPage = ({ onNavigate }) => {
-  const [words, setWords] = useState([]);
+  const { user } = useAuth();
+  const [under, setUnder] = useState([]);
+  const [completed, setCompleted] = useState([]);
+  const [quiz, setQuiz] = useState(null); // {word, question, options, correctIndex}
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const handleFetch = async () => {
+  const loadItems = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/review_words');
-      const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error || 'Failed to fetch words');
-      
-      setWords(data.words || []);
-      setToast({ message: `Found ${data.words.length} words for review`, type: 'success' });
-    } catch (error) {
-      setToast({ message: error.message, type: 'error' });
+      const res = await fetch(`http://localhost:5000/review_items?user_id=${user.id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch review items');
+      setUnder(data.under_review || []);
+      setCompleted(data.completed || []);
+    } catch (e) {
+      setToast({ message: e.message, type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startQuiz = async (w) => {
+    try {
+      const res = await fetch('http://localhost:5000/review_question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word: w })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load question');
+      setQuiz({ word: w, ...data });
+    } catch (e) {
+      setToast({ message: e.message, type: 'error' });
+    }
+  };
+
+  const submitAnswer = async (idx) => {
+    if (!quiz) return;
+    try {
+      const res = await fetch('http://localhost:5000/review_answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, word: quiz.word, selectedIndex: idx, correctIndex: quiz.correctIndex })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit answer');
+      setToast({ message: data.correct ? 'Correct! 👍' : 'Incorrect. Try again!', type: data.correct ? 'success' : 'error' });
+      setQuiz(null);
+      await loadItems();
+    } catch (e) {
+      setToast({ message: e.message, type: 'error' });
     }
   };
 
@@ -700,36 +742,46 @@ const ReviewPage = ({ onNavigate }) => {
         </div>
 
         <div className="bg-white rounded-3xl shadow-2xl p-8">
-          <button
-            onClick={handleFetch}
-            disabled={loading}
-            className="w-full py-4 px-6 bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold rounded-2xl hover:from-orange-700 hover:to-red-700 transform hover:scale-105 transition-all duration-200 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed text-lg mb-8"
-          >
-            {loading ? 'Loading...' : '📖 Fetch Review Words'}
-          </button>
-          
-          {words.length > 0 ? (
-            <div>
-              <h3 className="text-2xl font-black text-gray-900 mb-6">📚 Words Due for Review ({words.length})</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {words.map((word, index) => (
-                  <div
-                    key={index}
-                    className="p-6 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border-2 border-orange-200 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className="text-3xl">📖</span>
-                      <span className="font-bold text-gray-800 text-lg">{word}</span>
-                    </div>
-                  </div>
+          <div className="flex items-center gap-4 mb-8">
+            <CTAButton onClick={loadItems} color="orange">{loading ? 'Loading...' : '📖 Refresh Review Items'}</CTAButton>
+          </div>
+
+          {quiz ? (
+            <div className="p-6 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border-2 border-orange-200">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">{quiz.word}</h3>
+              <p className="text-gray-800 mb-4">{quiz.question}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {quiz.options.map((opt, i) => (
+                  <button key={i} onClick={() => submitAnswer(i)} className="px-4 py-3 rounded-xl bg-white border hover:border-brand-pink hover:text-brand-pink transition">
+                    {opt}
+                  </button>
                 ))}
               </div>
             </div>
-          ) : !loading && (
-            <div className="text-center py-16">
-              <div className="text-8xl mb-6">📚</div>
-              <h3 className="text-2xl font-bold text-gray-700 mb-3">No words available</h3>
-              <p className="text-gray-500 text-lg">Start by processing some words to see them here</p>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-2xl font-black text-gray-900 mb-4">Under Review ({under.length})</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {under.map((w, i) => (
+                    <button key={i} onClick={() => startQuiz(w)} className="p-6 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border-2 border-orange-200 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 text-left">
+                      <span className="text-3xl mr-2">📝</span>
+                      <span className="font-bold text-gray-800 text-lg">{w}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-gray-900 mb-4">Completed ({completed.length})</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {completed.map((w, i) => (
+                    <div key={i} className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border-2 border-green-200">
+                      <span className="text-3xl mr-2">✅</span>
+                      <span className="font-bold text-gray-800 text-lg">{w}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
