@@ -1,0 +1,9 @@
+Flask
+Flask-Login
+SpeechRecognition
+pocketsphinx
+python-dotenv
+google-generativeai
+deep-translator
+flask-cors
+Werkzeug
