@@ -26,13 +26,14 @@ def process_word(word: str, language: str, hashtable: 'HashTable',
     try:
         model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = (
-            'Return a JSON object with EXACTLY these fields and structure. No other text or explanation.\n'
+            'You are a vocabulary learning assistant. Return ONLY a valid JSON object with these exact fields:\n'
             '{\n'
-            f'    "definition": "<clear definition of the word {word} in {language}>",\n'
-            f'    "sentence": "<example sentence using {word}>",\n'
-            f'    "mnemonic": "<memory aid to remember {word}>",\n'
-            '    "difficulty": <number between 1 and 5>\n'
-            '}'
+            f'    "definition": "A clear, concise definition of the word {word} in {language}",\n'
+            f'    "sentence": "A natural example sentence using the word {word} in context",\n'
+            f'    "mnemonic": "A helpful memory aid or trick to remember the word {word}",\n'
+            '    "difficulty": 3\n'
+            '}\n'
+            'Rules: Return ONLY the JSON object. No markdown, no explanations, no additional text. Difficulty should be 1-5 based on word complexity.'
         )
         
         response = model.generate_content(prompt)

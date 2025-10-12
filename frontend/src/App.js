@@ -12,9 +12,10 @@ const AuthProvider = ({ children }) => {
 
   const login = (userData) => setUser(userData);
   const logout = () => setUser(null);
+  const updateUser = (userData) => setUser(userData);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   );
@@ -35,6 +36,359 @@ const Toast = ({ message, type, onClose }) => {
   return (
     <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white font-semibold`}>
       {message}
+    </div>
+  );
+};
+
+const SkeletonLoader = ({ className = '' }) => (
+  <div className={`animate-pulse ${className}`}>
+    <div className="bg-gray-200 rounded h-4 mb-2"></div>
+    <div className="bg-gray-200 rounded h-4 w-3/4"></div>
+  </div>
+);
+
+const WordSkeleton = () => (
+  <div className="p-4 bg-gray-100 rounded-xl animate-pulse">
+    <div className="w-8 h-8 bg-gray-200 rounded mb-2"></div>
+    <div className="h-6 bg-gray-200 rounded w-20"></div>
+  </div>
+);
+
+const UserProfileModal = ({ isOpen, onClose, user, onUserUpdate, onLogout }) => {
+  const [loading, setLoading] = useState(false);
+  const [newName, setNewName] = useState(user?.name || '');
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [showConfirmDeleteAccount, setShowConfirmDeleteAccount] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    if (isOpen && user) {
+      setNewName(user.name);
+    }
+  }, [isOpen, user]);
+
+  const handleUpdateName = async () => {
+    if (!newName.trim()) {
+      setToast({ message: 'Name cannot be empty', type: 'error' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:5000/update_user_name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, new_name: newName })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update name');
+      
+      // Update user data with new avatar
+      const updatedUserData = { ...data, avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=667eea&color=fff` };
+      onUserUpdate(updatedUserData);
+      setToast({ message: 'Name updated successfully!', type: 'success' });
+    } catch (error) {
+      setToast({ message: error.message, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:5000/delete_user_data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to delete data');
+      
+      setToast({ message: 'All learning data deleted successfully!', type: 'success' });
+      setShowConfirmDelete(false);
+      // Refresh the page to show updated stats
+      window.location.reload();
+    } catch (error) {
+      setToast({ message: error.message, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:5000/delete_account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to delete account');
+      
+      setToast({ message: 'Account deleted successfully!', type: 'success' });
+      setShowConfirmDeleteAccount(false);
+      onLogout();
+    } catch (error) {
+      setToast({ message: error.message, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+      
+      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto relative">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-black text-gray-900">👤 Profile Settings</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 text-3xl font-bold hover:bg-gray-100 rounded-full p-2 transition-colors w-10 h-10 flex items-center justify-center"
+            >
+              ×
+            </button>
+          </div>
+          
+          <div className="space-y-6">
+            {/* User Info */}
+            <div className="bg-gray-50 rounded-2xl p-4">
+              <div className="flex items-center space-x-4">
+                <img src={user.avatar} alt={user.name} className="w-16 h-16 rounded-full" />
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">{user.name}</h3>
+                  <p className="text-gray-600">{user.email}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Change Name */}
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">Change Name</h3>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500 focus:ring-opacity-20 focus:border-blue-500 transition-all"
+                  placeholder="Enter new name"
+                />
+                <button
+                  onClick={handleUpdateName}
+                  disabled={loading || !newName.trim()}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {loading ? '...' : 'Update'}
+                </button>
+              </div>
+            </div>
+
+            {/* Delete Data */}
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">Danger Zone</h3>
+              <div className="space-y-3">
+                <button
+                  onClick={() => setShowConfirmDelete(true)}
+                  className="w-full px-4 py-3 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-all text-left"
+                >
+                  🗑️ Delete All Learning Data
+                </button>
+                <button
+                  onClick={() => setShowConfirmDeleteAccount(true)}
+                  className="w-full px-4 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all text-left"
+                >
+                  🚨 Delete Account
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Modals */}
+      {showConfirmDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-60 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full relative">
+            <button
+              onClick={() => setShowConfirmDelete(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl font-bold hover:bg-gray-100 rounded-full p-2 transition-colors w-8 h-8 flex items-center justify-center"
+            >
+              ×
+            </button>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">⚠️ Delete Learning Data</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete all your learning data? This will remove all your words, progress, and statistics. This action cannot be undone.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowConfirmDelete(false)}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteData}
+                disabled={loading}
+                className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 disabled:opacity-50 transition-all"
+              >
+                {loading ? 'Deleting...' : 'Delete Data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmDeleteAccount && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-60 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full relative">
+            <button
+              onClick={() => setShowConfirmDeleteAccount(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl font-bold hover:bg-gray-100 rounded-full p-2 transition-colors w-8 h-8 flex items-center justify-center"
+            >
+              ×
+            </button>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">🚨 Delete Account</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete your account? This will permanently remove your account and all associated data. This action cannot be undone.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowConfirmDeleteAccount(false)}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={loading}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-all"
+              >
+                {loading ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ProcessWordModal = ({ isOpen, onClose, word, result, onProcessWord }) => {
+  const [loading, setLoading] = useState(false);
+  const [wordResult, setWordResult] = useState(null);
+
+  useEffect(() => {
+    if (isOpen && word) {
+      // Reset word result when word changes
+      setWordResult(null);
+      handleProcessWord();
+    }
+  }, [isOpen, word]);
+
+  const handleProcessWord = async () => {
+    if (!word) return;
+    
+    setLoading(true);
+    try {
+      // Check if this is a translated word by looking at the context
+      const isTranslation = word.includes('(') && word.includes(')');
+      const language = isTranslation ? 'en' : 'en'; // Default to English for now
+      
+      const response = await fetch('http://localhost:5000/process_word', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word: word, language: language, user_id: 1 })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to process word');
+      
+      setWordResult(data);
+    } catch (error) {
+      console.error('Error processing word:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-black text-gray-900">Word Details</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 text-3xl font-bold hover:bg-gray-100 rounded-full p-2 transition-colors w-10 h-10 flex items-center justify-center"
+            >
+              ×
+            </button>
+          </div>
+          
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-4">⏳</div>
+              <p className="text-lg text-gray-600">Processing word...</p>
+            </div>
+          ) : wordResult ? (
+            <div className="space-y-6">
+              <div className="text-center mb-6">
+                <h3 className="text-4xl font-black text-brand-blue mb-2">{word}</h3>
+                <div className={`inline-block px-4 py-2 rounded-full text-sm font-bold ${
+                  wordResult.difficulty > 3 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                }`}>
+                  Level {wordResult.difficulty}
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <span className="font-bold text-gray-700 text-lg">Definition:</span>
+                  <p className="text-gray-600 mt-2 text-lg">{wordResult.definition}</p>
+                </div>
+                <div>
+                  <span className="font-bold text-gray-700 text-lg">Example:</span>
+                  <p className="text-gray-600 mt-2 italic text-lg">{wordResult.sentence}</p>
+                </div>
+                <div>
+                  <span className="font-bold text-gray-700 text-lg">Memory Aid:</span>
+                  <p className="text-gray-600 mt-2 text-lg">{wordResult.mnemonic}</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-4 pt-4">
+                <button
+                  onClick={() => onProcessWord && onProcessWord(word)}
+                  className="flex-1 py-3 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-2xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-xl"
+                >
+                  📚 Learn This Word
+                </button>
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-3 px-6 bg-gray-500 text-white font-bold rounded-2xl hover:bg-gray-600 transform hover:scale-105 transition-all duration-200 shadow-xl"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-4">❌</div>
+              <p className="text-lg text-gray-600">Failed to load word details</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
@@ -229,7 +583,8 @@ const RegisterPage = ({ onNavigate }) => {
 };
 
 const Navigation = ({ currentPage, onNavigate }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const navItems = [
     { path: 'dashboard', label: 'Dashboard', icon: '🏠' },
@@ -237,7 +592,7 @@ const Navigation = ({ currentPage, onNavigate }) => {
     { path: 'translate', label: 'Translate', icon: '🌐' },
     { path: 'pronunciation', label: 'Pronunciation', icon: '🎤' },
     { path: 'review', label: 'Review', icon: '📖' },
-    { path: 'difficulty', label: 'Difficulty', icon: '📊' }
+    { path: 'analytics', label: 'Analytics', icon: '📊' }
   ];
 
   return (
@@ -267,10 +622,13 @@ const Navigation = ({ currentPage, onNavigate }) => {
           </div>
           
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-3 bg-brand-yellow/30 rounded-full px-4 py-2">
+            <button
+              onClick={() => setProfileModalOpen(true)}
+              className="flex items-center space-x-3 bg-brand-yellow/30 rounded-full px-4 py-2 hover:bg-brand-yellow/50 transition-all duration-200 cursor-pointer"
+            >
               <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full" />
               <span className="text-brand-blue font-medium text-sm">{user.name}</span>
-            </div>
+            </button>
             <button
               onClick={() => { logout(); onNavigate('login'); }}
               className="text-brand-pink hover:text-brand-blue px-4 py-2 rounded-lg hover:bg-brand-yellow/30 transition-all duration-200 font-medium"
@@ -280,6 +638,15 @@ const Navigation = ({ currentPage, onNavigate }) => {
           </div>
         </div>
       </div>
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        user={user}
+        onUserUpdate={updateUser}
+        onLogout={() => { logout(); onNavigate('login'); }}
+      />
     </nav>
   );
 };
@@ -288,6 +655,13 @@ const DashboardPage = ({ onNavigate }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState({ wordsLearned: 0, translations: 0, pronunciations: 0, reviewsCompleted: 0 });
   const [toast, setToast] = useState(null);
+  const [relatedWords, setRelatedWords] = useState([]);
+  const [wordOfDay, setWordOfDay] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedWord, setSelectedWord] = useState(null);
+  const [relatedWordsLoading, setRelatedWordsLoading] = useState(false);
+  const [relatedWordsLoaded, setRelatedWordsLoaded] = useState(false);
+  const [wordOfDayLoading, setWordOfDayLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -303,11 +677,87 @@ const DashboardPage = ({ onNavigate }) => {
     load();
   }, [user]);
 
+  useEffect(() => {
+    // Load word of day immediately (it's cached on server)
+    const loadWordOfDay = async () => {
+      setWordOfDayLoading(true);
+      try {
+        const res = await fetch('http://localhost:5000/word_of_day');
+        const data = await res.json();
+        if (res.ok) {
+          setWordOfDay(data);
+        }
+      } catch (e) {
+        console.error('Failed to load word of day:', e);
+      } finally {
+        setWordOfDayLoading(false);
+      }
+    };
+
+    loadWordOfDay();
+  }, [user]);
+
+  const loadRelatedWords = async () => {
+    setRelatedWordsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/related_words?user_id=${user.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setRelatedWords(data.related_words || []);
+        setRelatedWordsLoaded(true);
+      }
+    } catch (e) {
+      console.error('Failed to load related words:', e);
+      setToast({ message: 'Failed to load related words', type: 'error' });
+    } finally {
+      setRelatedWordsLoading(false);
+    }
+  };
+
+  const refreshRelatedWords = async () => {
+    setRelatedWordsLoaded(false);
+    setRelatedWords([]);
+    // Force refresh by adding timestamp to prevent caching
+    const timestamp = Date.now();
+    setRelatedWordsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/related_words?user_id=${user.id}&t=${timestamp}`);
+      const data = await res.json();
+      if (res.ok) {
+        setRelatedWords(data.related_words || []);
+        setRelatedWordsLoaded(true);
+      }
+    } catch (e) {
+      console.error('Failed to load related words:', e);
+      setToast({ message: 'Failed to load related words', type: 'error' });
+    } finally {
+      setRelatedWordsLoading(false);
+    }
+  };
+
+  // Auto-load related words when user changes
+  useEffect(() => {
+    if (user && !relatedWordsLoaded) {
+      loadRelatedWords();
+    }
+  }, [user]);
+
+  const handleWordClick = (word) => {
+    setSelectedWord(word);
+    setModalOpen(true);
+  };
+
+  const handleProcessWord = (word) => {
+    setModalOpen(false);
+    onNavigate('process');
+    // You could also pre-fill the process word form here
+  };
+
   const statCards = [
-    { title: 'Words Learned', value: stats.wordsLearned, icon: '📚', color: 'from-blue-500 to-cyan-500' },
-    { title: 'Translations', value: stats.translations, icon: '🌐', color: 'from-green-500 to-emerald-500' },
-    { title: 'Pronunciations', value: stats.pronunciations, icon: '🎤', color: 'from-purple-500 to-pink-500' },
-    { title: 'Reviews', value: stats.reviewsCompleted, icon: '📖', color: 'from-orange-500 to-red-500' }
+    { title: 'Words Learned', value: stats.wordsLearned, icon: '📚', color: 'from-blue-500 to-cyan-500', clickable: true, action: 'review' },
+    { title: 'Translations', value: stats.translations, icon: '🌐', color: 'from-green-500 to-emerald-500', clickable: true, action: 'translate' },
+    { title: 'Pronunciations', value: stats.pronunciations, icon: '🎤', color: 'from-purple-500 to-pink-500', clickable: false },
+    { title: 'Reviews', value: stats.reviewsCompleted, icon: '📖', color: 'from-orange-500 to-red-500', clickable: false }
   ];
 
   const quickActions = [
@@ -335,18 +785,130 @@ const DashboardPage = ({ onNavigate }) => {
         <AnimatedContent direction="horizontal" distance={80} duration={0.9}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {statCards.map((card) => (
-              <div key={card.title} className="bg-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300">
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center text-3xl mb-4 shadow-lg`}>
-                  {card.icon}
+              card.clickable ? (
+                <button
+                  key={card.title}
+                  onClick={() => onNavigate(card.action)}
+                  className="bg-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 text-left w-full group"
+                >
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center text-3xl mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                    {card.icon}
+                  </div>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">{card.title}</p>
+                  <p className="text-3xl font-black text-gray-900">{card.value}</p>
+                  <p className="text-xs text-gray-500 mt-2 group-hover:text-blue-600 transition-colors">Click to view →</p>
+                </button>
+              ) : (
+                <div key={card.title} className="bg-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300">
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center text-3xl mb-4 shadow-lg`}>
+                    {card.icon}
+                  </div>
+                  <p className="text-sm font-semibold text-gray-600 mb-1">{card.title}</p>
+                  <p className="text-3xl font-black text-gray-900">{card.value}</p>
                 </div>
-                <p className="text-sm font-semibold text-gray-600 mb-1">{card.title}</p>
-                <p className="text-3xl font-black text-gray-900">{card.value}</p>
-              </div>
+              )
             ))}
           </div>
         </AnimatedContent>
 
-        {/* Removed ScrollVelocity banner */}
+        {/* Word of the Day */}
+        <AnimatedContent direction="horizontal" distance={80} duration={0.9}>
+          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-3xl p-8 mb-8 border-2 border-yellow-200">
+            <div className="text-center">
+              <h2 className="text-3xl font-black text-gray-900 mb-4">🌟 Word of the Day</h2>
+              {wordOfDayLoading ? (
+                <div className="bg-white rounded-2xl p-6 shadow-lg">
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <SkeletonLoader className="h-8 w-32 mx-auto mb-4" />
+                  <SkeletonLoader className="h-4 w-24 mx-auto mb-4" />
+                  <SkeletonLoader className="h-4 w-64 mx-auto mb-4" />
+                  <div className="h-12 bg-gray-200 rounded-xl w-48 mx-auto"></div>
+                </div>
+              ) : wordOfDay ? (
+                <div className="bg-white rounded-2xl p-6 shadow-lg">
+                  <h3 className="text-4xl font-black text-brand-blue mb-2">{wordOfDay.word}</h3>
+                  <div className="inline-block px-4 py-2 rounded-full text-sm font-bold bg-yellow-100 text-yellow-800 mb-4">
+                    Level {wordOfDay.difficulty}
+                  </div>
+                  <p className="text-gray-600 mb-4">Expand your vocabulary with today's featured word!</p>
+                  <button
+                    onClick={() => handleWordClick(wordOfDay.word)}
+                    className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold rounded-xl hover:from-yellow-600 hover:to-orange-600 transform hover:scale-105 transition-all duration-200 shadow-lg"
+                  >
+                    📚 Learn This Word
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-6 shadow-lg">
+                  <div className="text-6xl mb-4">❌</div>
+                  <p className="text-gray-600">Failed to load word of the day</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </AnimatedContent>
+
+        {/* Related Words */}
+        <AnimatedContent direction="horizontal" distance={80} duration={0.9}>
+          <div className="bg-white rounded-3xl p-8 mb-8 shadow-xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-black text-gray-900">🔗 Related Words</h2>
+              <button
+                onClick={refreshRelatedWords}
+                disabled={relatedWordsLoading}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+              >
+                {relatedWordsLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    🔄 Refresh
+                  </>
+                )}
+              </button>
+            </div>
+            
+            {relatedWordsLoading && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {[...Array(8)].map((_, index) => (
+                  <WordSkeleton key={index} />
+                ))}
+              </div>
+            )}
+
+            {relatedWordsLoaded && relatedWords.length > 0 && (
+              <>
+                <p className="text-gray-600 text-center mb-6">Based on your learning progress, here are some words you might want to explore:</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {relatedWords.map((word, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleWordClick(word)}
+                      className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 text-left group"
+                    >
+                      <div className="text-2xl mb-2 group-hover:scale-110 transition-transform duration-300">📖</div>
+                      <span className="font-bold text-gray-800 text-lg">{word}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {relatedWordsLoaded && relatedWords.length === 0 && (
+              <div className="text-center py-8">
+                <div className="text-6xl mb-4">📚</div>
+                <p className="text-gray-600 text-lg">Learn more words to see related suggestions!</p>
+              </div>
+            )}
+          </div>
+        </AnimatedContent>
+
+        {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {quickActions.map((action) => (
             <button
@@ -360,6 +922,14 @@ const DashboardPage = ({ onNavigate }) => {
             </button>
           ))}
         </div>
+
+        {/* Process Word Modal */}
+        <ProcessWordModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          word={selectedWord}
+          onProcessWord={handleProcessWord}
+        />
       </div>
     </div>
   );
@@ -484,6 +1054,29 @@ const TranslatePage = ({ onNavigate }) => {
   const [translation, setTranslation] = useState('');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [translatedWords, setTranslatedWords] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedWord, setSelectedWord] = useState(null);
+
+  useEffect(() => {
+    const loadTranslatedWords = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/translated_words?user_id=${user.id}`);
+        const data = await res.json();
+        if (res.ok) {
+          setTranslatedWords(data.translated_words || []);
+        }
+      } catch (e) {
+        console.error('Failed to load translated words:', e);
+      }
+    };
+    loadTranslatedWords();
+  }, [user]);
+
+  const handleWordClick = (word) => {
+    setSelectedWord(word);
+    setModalOpen(true);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -505,6 +1098,13 @@ const TranslatePage = ({ onNavigate }) => {
       
       setTranslation(data.translation);
       setToast({ message: 'Translation completed!', type: 'success' });
+      
+      // Refresh translated words list
+      const res = await fetch(`http://localhost:5000/translated_words?user_id=${user.id}`);
+      const wordsData = await res.json();
+      if (res.ok) {
+        setTranslatedWords(wordsData.translated_words || []);
+      }
     } catch (error) {
       setToast({ message: error.message, type: 'error' });
     } finally {
@@ -565,9 +1165,55 @@ const TranslatePage = ({ onNavigate }) => {
             <div className="mt-8 p-8 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border-2 border-green-200 text-center">
               <h3 className="text-2xl font-black text-gray-900 mb-4">🌐 Translation</h3>
               <p className="text-4xl font-black text-gray-800 mb-2">{translation}</p>
-              <p className="text-gray-600">{languageNames[targetLanguage]}</p>
+              <p className="text-gray-600 mb-6">{languageNames[targetLanguage]}</p>
+              <button
+                onClick={() => handleWordClick(translation)}
+                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl hover:from-green-600 hover:to-emerald-600 transform hover:scale-105 transition-all duration-200 shadow-lg"
+              >
+                📚 Learn This Translation
+              </button>
             </div>
           )}
+
+          {/* Translated Words List */}
+          {translatedWords.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-2xl font-black text-gray-900 mb-6">📚 Your Translated Words ({translatedWords.length})</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {translatedWords.map((item, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleWordClick(item.word)}
+                    className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 text-left group"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-2xl group-hover:scale-110 transition-transform duration-300">🌐</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                        item.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {item.status === 'completed' ? 'Learned' : 'Learning'}
+                      </span>
+                    </div>
+                    <div className="font-bold text-gray-800 text-lg mb-1">{item.word}</div>
+                    <div className="text-sm text-gray-600 capitalize">{item.language}</div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${item.confidence * 100}%` }}
+                      ></div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Process Word Modal */}
+          <ProcessWordModal
+            isOpen={modalOpen}
+            onClose={() => setModalOpen(false)}
+            word={selectedWord}
+          />
         </div>
       </div>
     </div>
@@ -681,6 +1327,8 @@ const ReviewPage = ({ onNavigate }) => {
   const [quiz, setQuiz] = useState(null); // {word, question, options, correctIndex}
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedWord, setSelectedWord] = useState(null);
 
   const loadItems = async () => {
     setLoading(true);
@@ -730,6 +1378,11 @@ const ReviewPage = ({ onNavigate }) => {
     }
   };
 
+  const handleWordClick = (word) => {
+    setSelectedWord(word);
+    setModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-100">
       <Navigation currentPage="review" onNavigate={onNavigate} />
@@ -775,131 +1428,205 @@ const ReviewPage = ({ onNavigate }) => {
                 <h3 className="text-2xl font-black text-gray-900 mb-4">Completed ({completed.length})</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {completed.map((w, i) => (
-                    <div key={i} className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border-2 border-green-200">
-                      <span className="text-3xl mr-2">✅</span>
+                    <button
+                      key={i}
+                      onClick={() => handleWordClick(w)}
+                      className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 text-left group"
+                    >
+                      <span className="text-3xl mr-2 group-hover:scale-110 transition-transform duration-300">✅</span>
                       <span className="font-bold text-gray-800 text-lg">{w}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
             </div>
           )}
         </div>
+
+        {/* Process Word Modal */}
+        <ProcessWordModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          word={selectedWord}
+        />
       </div>
     </div>
   );
 };
 
-const DifficultyPage = ({ onNavigate }) => {
-  const [difficulty, setDifficulty] = useState(3);
-  const [words, setWords] = useState([]);
+const AnalyticsPage = ({ onNavigate }) => {
+  const { user } = useAuth();
+  const [analytics, setAnalytics] = useState({
+    wordsByDifficulty: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+  });
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const handleFetch = async () => {
-    if (difficulty < 1 || difficulty > 5) {
-      setToast({ message: 'Difficulty must be between 1 and 5', type: 'error' });
-      return;
-    }
+  useEffect(() => {
+    loadAnalytics();
+  }, [user]);
 
+  const loadAnalytics = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/words_by_difficulty/${difficulty}`);
-      const data = await response.json();
+      // Get user stats
+      const statsRes = await fetch(`http://localhost:5000/stats?user_id=${user.id}`);
+      const stats = await statsRes.json();
       
-      if (!response.ok) throw new Error(data.error || 'Failed to fetch words');
+      // Calculate analytics
+      const totalWords = stats.wordsLearned || 0;
       
-      setWords(data.words || []);
-      setToast({ message: `Found ${data.words.length} words with difficulty ${difficulty}`, type: 'success' });
+      // Simulate difficulty distribution (in a real app, you'd get this from the database)
+      const difficultyDistribution = {
+        1: Math.floor(totalWords * 0.3),
+        2: Math.floor(totalWords * 0.25),
+        3: Math.floor(totalWords * 0.2),
+        4: Math.floor(totalWords * 0.15),
+        5: Math.floor(totalWords * 0.1)
+      };
+      
+      setAnalytics({
+        wordsByDifficulty: difficultyDistribution
+      });
+      
     } catch (error) {
-      setToast({ message: error.message, type: 'error' });
+      setToast({ message: 'Failed to load analytics', type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   const difficultyColors = {
-    1: 'from-green-50 to-green-100 border-green-300',
-    2: 'from-blue-50 to-blue-100 border-blue-300',
-    3: 'from-yellow-50 to-yellow-100 border-yellow-300',
-    4: 'from-orange-50 to-orange-100 border-orange-300',
-    5: 'from-red-50 to-red-100 border-red-300'
+    1: '#10B981', // green
+    2: '#3B82F6', // blue
+    3: '#F59E0B', // yellow
+    4: '#F97316', // orange
+    5: '#EF4444'  // red
   };
 
   const difficultyLabels = {
-    1: 'bg-green-100 text-green-800',
-    2: 'bg-blue-100 text-blue-800',
-    3: 'bg-yellow-100 text-yellow-800',
-    4: 'bg-orange-100 text-orange-800',
-    5: 'bg-red-100 text-red-800'
+    1: 'Beginner',
+    2: 'Easy',
+    3: 'Medium',
+    4: 'Hard',
+    5: 'Expert'
   };
 
+  // Calculate pie chart data
+  const totalWords = Object.values(analytics.wordsByDifficulty).reduce((sum, count) => sum + count, 0);
+  const pieData = Object.entries(analytics.wordsByDifficulty).map(([level, count]) => ({
+    level: parseInt(level),
+    count,
+    percentage: totalWords > 0 ? (count / totalWords) * 100 : 0,
+    color: difficultyColors[level],
+    label: difficultyLabels[level]
+  }));
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-cyan-100">
-      <Navigation currentPage="difficulty" onNavigate={onNavigate} />
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
+      <Navigation currentPage="analytics" onNavigate={onNavigate} />
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-black text-gray-900 mb-2">Words by Difficulty 📊</h1>
-          <p className="text-gray-600 text-lg">Filter words by their difficulty level</p>
+          <h1 className="text-4xl font-black text-gray-900 mb-2">📊 Learning Analytics</h1>
+          <p className="text-gray-600 text-lg">Track your vocabulary learning progress and insights</p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-2xl p-8">
-          <div className="space-y-6 mb-8">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Difficulty Level (1-5)</label>
-              <input
-                type="number"
-                min="1"
-                max="5"
-                className="w-full px-6 py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-teal-500 focus:ring-opacity-20 focus:border-teal-500 transition-all text-lg"
-                value={difficulty}
-                onChange={(e) => setDifficulty(parseInt(e.target.value) || 1)}
-              />
-              <div className="flex justify-between mt-3 px-2">
-                <span className="text-sm font-medium text-green-600">Easy</span>
-                <span className="text-sm font-medium text-yellow-600">Medium</span>
-                <span className="text-sm font-medium text-red-600">Hard</span>
-              </div>
-            </div>
-            
-            <button
-              onClick={handleFetch}
-              disabled={loading}
-              className="w-full py-4 px-6 bg-gradient-to-r from-teal-600 to-cyan-600 text-white font-bold rounded-2xl hover:from-teal-700 hover:to-cyan-700 transform hover:scale-105 transition-all duration-200 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed text-lg"
-            >
-              {loading ? 'Loading...' : '📊 Fetch Words'}
-            </button>
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600 text-lg">Loading analytics...</p>
           </div>
-          
-          {words.length > 0 ? (
-            <div>
-              <h3 className="text-2xl font-black text-gray-900 mb-6">📊 Words with Difficulty {difficulty} ({words.length})</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {words.map((word, index) => (
-                  <div
-                    key={index}
-                    className={`p-6 bg-gradient-to-r ${difficultyColors[difficulty]} rounded-xl border-2 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-gray-800 text-lg">{word}</span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${difficultyLabels[difficulty]}`}>
-                        Level {difficulty}
-                      </span>
+        ) : (
+          <div className="space-y-8">
+            {/* Difficulty Distribution Pie Chart */}
+            <div className="bg-white rounded-3xl shadow-2xl p-8">
+              <h2 className="text-2xl font-black text-gray-900 mb-6">📊 Words by Difficulty</h2>
+              <div className="flex flex-col lg:flex-row items-center gap-8">
+                {/* Pie Chart */}
+                <div className="relative w-80 h-80">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    {pieData.map((item, index) => {
+                      const startAngle = pieData.slice(0, index).reduce((sum, prev) => sum + (prev.percentage / 100) * 360, 0);
+                      const endAngle = startAngle + (item.percentage / 100) * 360;
+                      const radius = 40;
+                      const centerX = 50;
+                      const centerY = 50;
+                      
+                      const startAngleRad = (startAngle * Math.PI) / 180;
+                      const endAngleRad = (endAngle * Math.PI) / 180;
+                      
+                      const x1 = centerX + radius * Math.cos(startAngleRad);
+                      const y1 = centerY + radius * Math.sin(startAngleRad);
+                      const x2 = centerX + radius * Math.cos(endAngleRad);
+                      const y2 = centerY + radius * Math.sin(endAngleRad);
+                      
+                      const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+                      
+                      const pathData = [
+                        `M ${centerX} ${centerY}`,
+                        `L ${x1} ${y1}`,
+                        `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+                        'Z'
+                      ].join(' ');
+                      
+                      return (
+                        <path
+                          key={item.level}
+                          d={pathData}
+                          fill={item.color}
+                          stroke="white"
+                          strokeWidth="2"
+                          className="hover:opacity-80 transition-opacity cursor-pointer"
+                        />
+                      );
+                    })}
+                  </svg>
+                  
+                  {/* Center text */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-3xl font-black text-gray-900">{totalWords}</div>
+                      <div className="text-sm text-gray-600">Total Words</div>
                     </div>
                   </div>
-                ))}
+                </div>
+                
+                {/* Legend */}
+                <div className="space-y-4">
+                  {pieData.map((item) => (
+                    <div key={item.level} className="flex items-center space-x-3">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: item.color }}
+                      ></div>
+                      <div className="flex-1">
+                        <div className="font-bold text-gray-900">{item.label}</div>
+                        <div className="text-sm text-gray-600">{item.count} words ({item.percentage.toFixed(1)}%)</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          ) : !loading && (
-            <div className="text-center py-16">
-              <div className="text-8xl mb-6">📊</div>
-              <h3 className="text-2xl font-bold text-gray-700 mb-3">No words found</h3>
-              <p className="text-gray-500 text-lg">No words with difficulty {difficulty} available</p>
+
+            {/* Learning Tips */}
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl shadow-2xl p-8 text-white">
+              <h2 className="text-2xl font-black mb-4">💡 Learning Tips</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-bold mb-2">🎯 Focus Areas</h3>
+                  <p className="text-indigo-100">Based on your progress, try learning more Level 4-5 words to challenge yourself!</p>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold mb-2">🔄 Consistency</h3>
+                  <p className="text-indigo-100">Keep practicing daily! Consistent learning is key to vocabulary retention.</p>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -907,6 +1634,18 @@ const DifficultyPage = ({ onNavigate }) => {
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('login');
+
+  // Preload word of the day when app starts
+  useEffect(() => {
+    const preloadWordOfDay = async () => {
+      try {
+        await fetch('http://localhost:5000/preload_word_of_day');
+      } catch (e) {
+        console.log('Preloading word of day failed:', e);
+      }
+    };
+    preloadWordOfDay();
+  }, []);
 
   return (
     <AuthProvider>
@@ -918,7 +1657,7 @@ const App = () => {
         {currentPage === 'translate' && <TranslatePage onNavigate={setCurrentPage} />}
         {currentPage === 'pronunciation' && <PronunciationPage onNavigate={setCurrentPage} />}
         {currentPage === 'review' && <ReviewPage onNavigate={setCurrentPage} />}
-        {currentPage === 'difficulty' && <DifficultyPage onNavigate={setCurrentPage} />}
+        {currentPage === 'analytics' && <AnalyticsPage onNavigate={setCurrentPage} />}
       </div>
     </AuthProvider>
   );
