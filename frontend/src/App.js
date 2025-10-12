@@ -193,19 +193,19 @@ const UserProfileModal = ({ isOpen, onClose, user, onUserUpdate, onLogout }) => 
 
             {/* Delete Data */}
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">Danger Zone</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">Deletion Options</h3>
               <div className="space-y-3">
                 <button
                   onClick={() => setShowConfirmDelete(true)}
                   className="w-full px-4 py-3 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-all text-left"
                 >
-                  🗑️ Delete All Learning Data
+                  Delete All Learning Data
                 </button>
                 <button
                   onClick={() => setShowConfirmDeleteAccount(true)}
                   className="w-full px-4 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all text-left"
                 >
-                  🚨 Delete Account
+                  Delete Account
                 </button>
               </div>
             </div>
